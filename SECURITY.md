@@ -1,4 +1,4 @@
-# IaC Security Report – 2025-08-01 11:37:01
+# IaC Security Report – 2025-08-01 11:41:46
 
 ## Introduction
 This file is generated automatically by the **IaC Security Scan** workflow.
@@ -76,7 +76,7 @@ The sections below are refreshed on every run:
       }
       a.toggle-more-links { cursor: pointer; }
     </style>
-    <title>. - Trivy Report - 2025-08-01 11:36:32.580838356 +0000 UTC m=+1.511432376 </title>
+    <title>. - Trivy Report - 2025-08-01 11:41:25.158937555 +0000 UTC m=+2.117260312 </title>
     <script>
       window.onload = function() {
         document.querySelectorAll('td.links').forEach(function(linkCell) {
@@ -106,7 +106,7 @@ The sections below are refreshed on every run:
     </script>
   </head>
   <body>
-    <h1>. - Trivy Report - 2025-08-01 11:36:32.580856551 +0000 UTC m=+1.511450560</h1>
+    <h1>. - Trivy Report - 2025-08-01 11:41:25.158956366 +0000 UTC m=+2.117279113</h1>
     <table>
       <tr class="group-header"><th colspan="6">terraform</th></tr>
       <tr><th colspan="6">No Vulnerabilities found</th></tr>
@@ -481,11 +481,11 @@ Result #10 LOW Bucket does not have a corresponding public access block.
 
   timings
   ──────────────────────────────────────────
-  disk i/o             18.987µs
-  parsing              192.12µs
-  adaptation           87.869µs
-  checks               3.721308ms
-  total                4.020284ms
+  disk i/o             15.799µs
+  parsing              178.574µs
+  adaptation           86.171µs
+  checks               3.052937ms
+  total                3.333481ms
 
   counts
   ──────────────────────────────────────────
@@ -527,32 +527,6 @@ Check: CKV_AWS_20: "S3 Bucket has an ACL defined which allows public READ access
 		18 |   }
 		19 | }
 
-Check: CKV_AWS_144: "Ensure that S3 bucket has cross-region replication enabled"
-	FAILED for resource: aws_s3_bucket.public_bucket
-	File: /main.tf:13-19
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled
-
-		13 | resource "aws_s3_bucket" "public_bucket" {
-		14 |   bucket = "iac-scan-test-bucket"
-		15 |   acl    = "public-read"
-		16 |   tags = {
-		17 |     Environment = "test"
-		18 |   }
-		19 | }
-
-Check: CKV_AWS_145: "Ensure that S3 buckets are encrypted with KMS by default"
-	FAILED for resource: aws_s3_bucket.public_bucket
-	File: /main.tf:13-19
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default
-
-		13 | resource "aws_s3_bucket" "public_bucket" {
-		14 |   bucket = "iac-scan-test-bucket"
-		15 |   acl    = "public-read"
-		16 |   tags = {
-		17 |     Environment = "test"
-		18 |   }
-		19 | }
-
 Check: CKV2_AWS_6: "Ensure that S3 bucket has a Public Access block"
 	FAILED for resource: aws_s3_bucket.public_bucket
 	File: /main.tf:13-19
@@ -579,19 +553,6 @@ Check: CKV2_AWS_62: "Ensure S3 buckets should have event notifications enabled"
 		18 |   }
 		19 | }
 
-Check: CKV_AWS_21: "Ensure all data stored in the S3 bucket have versioning enabled"
-	FAILED for resource: aws_s3_bucket.public_bucket
-	File: /main.tf:13-19
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning
-
-		13 | resource "aws_s3_bucket" "public_bucket" {
-		14 |   bucket = "iac-scan-test-bucket"
-		15 |   acl    = "public-read"
-		16 |   tags = {
-		17 |     Environment = "test"
-		18 |   }
-		19 | }
-
 Check: CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
 	FAILED for resource: aws_s3_bucket.public_bucket
 	File: /main.tf:13-19
@@ -605,10 +566,49 @@ Check: CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
 		18 |   }
 		19 | }
 
+Check: CKV_AWS_144: "Ensure that S3 bucket has cross-region replication enabled"
+	FAILED for resource: aws_s3_bucket.public_bucket
+	File: /main.tf:13-19
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled
+
+		13 | resource "aws_s3_bucket" "public_bucket" {
+		14 |   bucket = "iac-scan-test-bucket"
+		15 |   acl    = "public-read"
+		16 |   tags = {
+		17 |     Environment = "test"
+		18 |   }
+		19 | }
+
+Check: CKV_AWS_145: "Ensure that S3 buckets are encrypted with KMS by default"
+	FAILED for resource: aws_s3_bucket.public_bucket
+	File: /main.tf:13-19
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default
+
+		13 | resource "aws_s3_bucket" "public_bucket" {
+		14 |   bucket = "iac-scan-test-bucket"
+		15 |   acl    = "public-read"
+		16 |   tags = {
+		17 |     Environment = "test"
+		18 |   }
+		19 | }
+
 Check: CKV2_AWS_61: "Ensure that an S3 bucket has a lifecycle configuration"
 	FAILED for resource: aws_s3_bucket.public_bucket
 	File: /main.tf:13-19
 	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61
+
+		13 | resource "aws_s3_bucket" "public_bucket" {
+		14 |   bucket = "iac-scan-test-bucket"
+		15 |   acl    = "public-read"
+		16 |   tags = {
+		17 |     Environment = "test"
+		18 |   }
+		19 | }
+
+Check: CKV_AWS_21: "Ensure all data stored in the S3 bucket have versioning enabled"
+	FAILED for resource: aws_s3_bucket.public_bucket
+	File: /main.tf:13-19
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning
 
 		13 | resource "aws_s3_bucket" "public_bucket" {
 		14 |   bucket = "iac-scan-test-bucket"
