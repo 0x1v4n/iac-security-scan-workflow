@@ -1,0 +1,234 @@
+name: IaC Security Scan (Parallel & Fault-Tolerant)
+
+on:
+  push:
+    branches: [ "*" ]
+    paths:
+      - '**/*.tf'
+      - '**/*.tfvars'
+      - '**/*.tf.json'
+      - '**/*.hcl'
+      - '.github/workflows/iac-security.yml'
+  pull_request:
+    branches: [ "*" ]
+    paths:
+      - '**/*.tf'
+      - '**/*.tfvars'
+      - '**/*.tf.json'
+      - '**/*.hcl'
+      - '.github/workflows/iac-security.yml'
+
+permissions:
+  contents: write          # needed to commit SECURITY.md
+  security-events: write   # needed to upload SARIF to Code Scanning
+
+jobs:
+  trivy:
+    name: Trivy Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          sudo curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh
+
+      # Produce SARIF but never fail the build on findings
+      - name: Trivy IaC scan (SARIF)
+        uses: aquasecurity/trivy-action@0.32.0
+        with:
+          scan-type: config            # scan repo root recursively for IaC misconfigs
+          format: sarif
+          output: trivy.sarif
+          exit-code: '0'
+
+      # SARIF upload may fail on private repos without GHAS — do not break the workflow
+      - name: Upload Trivy SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: trivy.sarif
+
+      # HTML for embedding into SECURITY.md; fallback ensures an artifact always exists
+      - name: Trivy IaC scan (HTML)
+        run: |
+          trivy config . --format template --template "@/home/runner/.local/bin/trivy-bin/contrib/html.tpl" > trivy.html \
+          || echo "<h2>Trivy Report</h2><p>HTML generation failed. See logs.</p>" > trivy.html
+
+      # Always publish artifacts so the aggregator can proceed regardless of errors
+      - name: Upload Trivy artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-artifacts
+          path: |
+            trivy.html
+            trivy.sarif
+          if-no-files-found: ignore
+
+  tfsec:
+    name: tfsec Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install tfsec
+        run: |
+          TFSEC_VER=1.28.14
+          curl -sL https://github.com/aquasecurity/tfsec/releases/download/v${TFSEC_VER}/tfsec-linux-amd64 -o tfsec
+          chmod +x tfsec
+          sudo mv tfsec /usr/local/bin/
+
+      # Scan the entire repo recursively; never fail the job
+      - name: Run tfsec
+        run: |
+          tfsec . --no-colour > tfsec.txt 2>&1 || true
+
+      - name: Upload tfsec artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfsec-artifacts
+          path: tfsec.txt
+          if-no-files-found: ignore
+
+  checkov:
+    name: Checkov Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Checkov
+        run: |
+          pip3 install --upgrade checkov
+
+      # Scan the entire repo recursively; never fail the job
+      - name: Run Checkov
+        run: |
+          checkov -d . --quiet > checkov.txt 2>&1 || true
+
+      - name: Upload Checkov artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-artifacts
+          path: checkov.txt
+          if-no-files-found: ignore
+
+  aggregate:
+    name: Aggregate & Publish SECURITY.md
+    runs-on: ubuntu-latest
+    needs: [trivy, tfsec, checkov]   # real parallelism: wait for all scans
+    if: always()                      # always run, even if upstream jobs failed/cancelled
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Download whatever is available; missing artifacts should not fail the job
+      - name: Download Trivy artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: trivy-artifacts
+          path: artifacts/trivy
+
+      - name: Download tfsec artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: tfsec-artifacts
+          path: artifacts/tfsec
+
+      - name: Download Checkov artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: checkov-artifacts
+          path: artifacts/checkov
+
+      # Build a fresh SECURITY.md every run; tolerate missing pieces
+      - name: Build SECURITY.md
+        shell: bash
+        run: |
+          cat > SECURITY.md <<EOF
+          # IaC Security Report – $(date +'%Y-%m-%d %H:%M:%S')
+
+          ## Introduction
+          This file is generated automatically by the **IaC Security Scan** workflow.
+          It aggregates Infrastructure-as-Code (Terraform) security findings on each push and pull request.
+
+          The sections below are refreshed on every run:
+          - **Trivy** – Vulnerabilities & misconfigurations (HTML)
+          - **Tfsec** – Terraform-focused static analysis
+          - **Checkov** – Policy-based compliance checks
+
+          ## Notes
+          - **Private repositories:** Uploading SARIF to the Code Scanning dashboard requires GitHub Advanced Security. If that step fails, this Markdown report is still generated and committed.
+          - Scans run recursively from the repository root to accommodate varied layouts.
+          - Static analysis may report acceptable configurations; document justified suppressions.
+
+          ## References
+          - [Trivy – IaC security scanner](https://github.com/aquasecurity/trivy)
+          - [Tfsec – Terraform static analysis](https://github.com/aquasecurity/tfsec)
+          - [Checkov – Infrastructure as Code policy scanning](https://github.com/bridgecrewio/checkov)
+          - [GitHub Code Scanning documentation](https://docs.github.com/en/code-security/code-scanning)
+
+          ---
+          EOF
+
+          echo "" >> SECURITY.md
+
+          # ---- Trivy (HTML) ----
+          echo "## Trivy Report" >> SECURITY.md
+          if [[ -f "artifacts/trivy/trivy.html" ]]; then
+            cat artifacts/trivy/trivy.html >> SECURITY.md
+          else
+            echo "" >> SECURITY.md
+            echo "_No Trivy HTML results available for this run._" >> SECURITY.md
+            echo "" >> SECURITY.md
+          fi
+
+          # ---- tfsec ----
+          echo "" >> SECURITY.md
+          echo "## tfsec Scan Results" >> SECURITY.md
+          echo "" >> SECURITY.md
+          if [[ -f "artifacts/tfsec/tfsec.txt" ]]; then
+            echo '```' >> SECURITY.md
+            cat artifacts/tfsec/tfsec.txt >> SECURITY.md
+            echo '```' >> SECURITY.md
+          else
+            echo "_No tfsec results available for this run._" >> SECURITY.md
+          fi
+
+          # ---- Checkov ----
+          echo "" >> SECURITY.md
+          echo "## Checkov Scan Results" >> SECURITY.md
+          echo "" >> SECURITY.md
+          if [[ -f "artifacts/checkov/checkov.txt" ]]; then
+            echo '```' >> SECURITY.md
+            cat artifacts/checkov/checkov.txt >> SECURITY.md
+            echo '```' >> SECURITY.md
+          else
+            echo "_No Checkov results available for this run._" >> SECURITY.md
+          fi
+
+      # Commit must run even when scans fail so the report is always published
+      - name: Commit updated SECURITY.md
+        if: always()
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: SECURITY.md
+          message: "chore(security): publish aggregated SECURITY.md (parallel, fault-tolerant, repo-wide scan) [skip ci]"
+          default_author: github_actions
+
+      # Keep SECURITY.md as a run artifact too (useful on PRs)
+      - name: Upload SECURITY.md artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-md
+          path: SECURITY.md
+          if-no-files-found: error
